@@ -23,6 +23,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "platforms": ["ios", "android", "web"],
+    "experiments": {
+      "baseUrl": "/goit-react-native-"
     }
   }
 }
