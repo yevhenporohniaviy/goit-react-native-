@@ -19,18 +19,20 @@ import Button from "../components/Button";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("screen");
 
-const LoginScreen = ({ onRegister }) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+const LoginScreen = ({ navigation }) => {
+  const [state, setState] = useState({
+    login: "",
+    password: "",
+  });
   const [isPasswordHidden, setIsPasswordHidden] = useState(true);
 
   const handleEmailChange = useCallback((value) => {
-    setEmail(value);
+    setState((prev) => ({ ...prev, login: value }));
   }, []);
 
   const handlePasswordChange = useCallback((value) => {
     if (value.length < 20) {
-      setPassword(value);
+      setState((prev) => ({ ...prev, password: value }));
     }
   }, []);
 
@@ -39,13 +41,12 @@ const LoginScreen = ({ onRegister }) => {
   }, []);
 
   const onLogin = useCallback(async () => {
-    console.log("login");
-    console.log(email, password);
-  }, [email, password]);
+    navigation.navigate("Home");
+  }, [state]);
 
   const onSignUp = useCallback(() => {
-    onRegister();
-  }, [onRegister]);
+    navigation.navigate("Registration");
+  }, []);
 
   const passwordToggleButton = (
     <TouchableOpacity onPress={togglePasswordVisibility}>
@@ -71,14 +72,14 @@ const LoginScreen = ({ onRegister }) => {
 
           <View style={[styles.innerContainer, styles.inputContainer]}>
             <Input
-              value={email}
+              value={state.email}
               autoFocus={true}
               placeholder="Адреса електронної пошти"
               onTextChange={handleEmailChange}
             />
 
             <Input
-              value={password}
+              value={state.password}
               placeholder="Пароль"
               rightButton={passwordToggleButton}
               outerStyles={styles.passwordButton}
