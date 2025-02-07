@@ -1,5 +1,7 @@
 import { FC, useEffect, useState, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   StyleSheet,
@@ -8,11 +10,19 @@ import {
   View,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { TrashCan, Camera, MapMarkerGray } from "../../assets/icons";
+import {
+  TrashCan,
+  MapMarkerGray,
+  Camera as CameraIcon,
+} from "../../assets/icons";
 import "react-native-get-random-values";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
+import { uploadImage } from "../services/firebaseStore";
+import { selectUser } from "../redux/user/userSelectors";
+import { createPost } from "../redux/post/postOperations";
+import { selectPostCreate } from "../redux/post/postSelectors";
 
 import { colors } from "../../styles/global";
 
@@ -22,7 +32,9 @@ import Input from "../components/Input";
 const PLACES_KEY = "Не вдалось карту підєднати для сервіса";
 
 const CreatePostScreen = ({ navigation, route }) => {
+  const dispatch = useDispatch();
   const [facing] = useState("back");
+  const { user } = useSelector(selectUser);
   const [permission, requestPermission] = useCameraPermissions();
   const [selectedImage, setSelectedImage] = useState(null);
   const [title, setTitle] = useState("");
@@ -30,6 +42,13 @@ const CreatePostScreen = ({ navigation, route }) => {
   const cameraView = useRef(null);
   const placesRef = useRef(null);
   const [location, setLocation] = useState(null);
+  const { lastPost, isLoading, error } = useSelector(selectPostCreate);
+
+  useEffect(() => {
+    if (lastPost) {
+      navigation.navigate("PostsScreen");
+    }
+  }, [lastPost]);
 
   if (!permission) {
     return <View style={styles.section} />;
@@ -90,6 +109,25 @@ const CreatePostScreen = ({ navigation, route }) => {
     placesRef.current?.clear();
   };
 
+  const uploadImageToStorage = async () => {
+    if (!selectedImage) return;
+
+    try {
+      const response = await fetch(selectedImage);
+      const file = await response.blob();
+      const fileName = selectedImage.split("/").pop(); // Отримуємо ім'я файлу з URI
+      const fileType = file.type; // Отримуємо тип файлу
+      const imageFile = new File([file], fileName, { type: fileType });
+
+      const uploadedImageUrl = await uploadImage(user.uid, imageFile, fileName);
+
+      return uploadedImageUrl;
+    } catch (e) {
+      console.log(e);
+      return null;
+    }
+  };
+
   const onPublish = async () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -103,7 +141,9 @@ const CreatePostScreen = ({ navigation, route }) => {
       setLocation(currentLocation.coords);
 
       const post = {
-        image: selectedImage,
+        id: user.uid + Date.now().toString(32),
+        userId: user.uid,
+        image: await uploadImageToStorage(selectedImage),
         title,
         address,
         location: {
@@ -112,13 +152,10 @@ const CreatePostScreen = ({ navigation, route }) => {
         },
       };
 
-      console.log("Post with location:", post);
-
+      console.log("post:", post);
       onClearData();
 
-      navigation.navigate("PostsScreen", {
-        post: post,
-      });
+      dispatch(createPost(post));
     } catch (error) {
       console.log("Error publishing post:", error);
       alert("Помилка при публікації поста");
@@ -138,7 +175,7 @@ const CreatePostScreen = ({ navigation, route }) => {
                   style={styles.cameraIconWrapper}
                   onPress={takePicture}
                 >
-                  <Camera width={24} height={24} />
+                  <CameraIcon width={24} height={24} />
                 </TouchableOpacity>
               </View>
             </CameraView>
@@ -149,7 +186,7 @@ const CreatePostScreen = ({ navigation, route }) => {
                 style={styles.cameraIconWrapper}
                 onPress={() => setSelectedImage(null)}
               >
-                <Camera width={24} height={24} />
+                <CameraIcon width={24} height={24} />
               </TouchableOpacity>
             </>
           )}
@@ -216,16 +253,22 @@ const CreatePostScreen = ({ navigation, route }) => {
           </View>
         </KeyboardAvoidingView>
 
-        <Button onPress={onPublish} isDisabled={isDisabled}>
-          <Text
-            style={{
-              ...styles.btnText,
-              ...(isDisabled ? styles.unactiveBtnText : null),
-            }}
-          >
-            Опублікувати
-          </Text>
-        </Button>
+        {isLoading ? (
+          <ActivityIndicator size="large" />
+        ) : (
+          <Button onPress={onPublish} isDisabled={isDisabled}>
+            <Text
+              style={{
+                ...styles.btnText,
+                ...(isDisabled ? styles.unactiveBtnText : null),
+              }}
+            >
+              Опублікувати
+            </Text>
+          </Button>
+        )}
+
+        {error && <Text style={styles.error}>{error}</Text>}
       </View>
 
       <View
@@ -340,5 +383,10 @@ const styles = StyleSheet.create({
     top: 10,
     left: 0,
     zIndex: 1000,
+  },
+  error: {
+    color: colors.red,
+    textAlign: "center",
+    fontSize: 16,
   },
 });

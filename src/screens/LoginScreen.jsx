@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   KeyboardAvoidingView,
+  ActivityIndicator,
+  TouchableWithoutFeedback,
 } from "react-native";
 
 import { colors } from "../../styles/global";
@@ -17,97 +19,117 @@ import { colors } from "../../styles/global";
 import Input from "../components/Input";
 import Button from "../components/Button";
 
+import { useSelector, useDispatch } from "react-redux";
+import { selectIsLoading, selectError } from "../redux/user/userSelectors";
+import { loginUser } from "../redux/user/userOperations";
+import { resetError } from "../redux/user/userSlice";
+
 const { width: SCREEN_WIDTH } = Dimensions.get("screen");
 
 const LoginScreen = ({ navigation }) => {
-  const [state, setState] = useState({
-    login: "",
-    password: "",
-  });
-  const [isPasswordHidden, setIsPasswordHidden] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(true);
+  const dispatch = useDispatch();
 
-  const handleEmailChange = useCallback((value) => {
-    setState((prev) => ({ ...prev, login: value }));
+  const isLoading = useSelector(selectIsLoading);
+  const error = useSelector(selectError);
+
+  console.log(isLoading);
+
+  useEffect(() => {
+    dispatch(resetError());
   }, []);
 
-  const handlePasswordChange = useCallback((value) => {
+  const handleEmailChange = (value) => {
+    setEmail(value);
+  };
+
+  const handlePasswordChange = (value) => {
     if (value.length < 20) {
-      setState((prev) => ({ ...prev, password: value }));
+      setPassword(value);
     }
-  }, []);
+  };
 
-  const togglePasswordVisibility = useCallback(() => {
-    setIsPasswordHidden((prev) => !prev);
-  }, []);
+  const showPassword = () => {
+    setIsPasswordVisible((prev) => !prev);
+  };
 
-  const onLogin = useCallback(async () => {
-    navigation.navigate("Home");
-  }, [state]);
+  const onLogin = async () => {
+    console.log("login");
+    console.log(email, password);
+    dispatch(loginUser({ email, password }));
+  };
 
-  const onSignUp = useCallback(() => {
+  const onSignUp = () => {
     navigation.navigate("Registration");
-  }, []);
+  };
 
-  const passwordToggleButton = (
-    <TouchableOpacity onPress={togglePasswordVisibility}>
-      <Text style={[styles.baseText, styles.passwordButtonText]}>
-        {isPasswordHidden ? "Показати" : "Сховати"}
-      </Text>
+  const showButton = (
+    <TouchableOpacity onPress={showPassword}>
+      <Text style={[styles.baseText, styles.passwordButtonText]}>Показати</Text>
     </TouchableOpacity>
   );
 
   return (
     <Pressable style={{ flex: 1 }} onPress={() => Keyboard.dismiss()}>
-      <Image
-        source={require("../../assets/images/bg_native.png")}
-        resizeMode="cover"
-        style={styles.image}
-      />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Увійти</Text>
+      <>
+        <Image
+          source={require("../../assets/images/bg_native.png")}
+          resizeMode="cover"
+          style={styles.image}
+        />
 
-          <View style={[styles.innerContainer, styles.inputContainer]}>
-            <Input
-              value={state.email}
-              autoFocus={true}
-              placeholder="Адреса електронної пошти"
-              onTextChange={handleEmailChange}
-            />
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS == "ios" ? "padding" : "height"}
+        >
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Увійти</Text>
 
-            <Input
-              value={state.password}
-              placeholder="Пароль"
-              rightButton={passwordToggleButton}
-              outerStyles={styles.passwordButton}
-              onTextChange={handlePasswordChange}
-              secureTextEntry={isPasswordHidden}
-            />
-          </View>
+            <View style={[styles.innerContainer, styles.inputContainer]}>
+              <Input
+                value={email}
+                autofocus={true}
+                placeholder="Адреса електронної пошти"
+                onTextChange={handleEmailChange}
+              />
 
-          <View style={[styles.innerContainer, styles.buttonContainer]}>
-            <Button onPress={onLogin}>
-              <Text style={[styles.baseText, styles.loginButtonText]}>
-                Увійти
-              </Text>
-            </Button>
+              <Input
+                value={password}
+                placeholder="Пароль"
+                rightButton={showButton}
+                outerStyles={styles.passwordButton}
+                onTextChange={handlePasswordChange}
+                secureTextEntry={isPasswordVisible}
+              />
+            </View>
 
-            <View style={styles.signUpContainer}>
-              <Text style={[styles.baseText, styles.infoText]}>
-                Немає акаунту?
-              </Text>
-              <TouchableOpacity onPress={onSignUp}>
-                <Text style={[styles.baseText, styles.signUpText]}>
-                  {" Зареєструватися"}
+            <View style={[styles.innerContainer, styles.buttonContainer]}>
+              {isLoading ? (
+                <ActivityIndicator size="large" />
+              ) : (
+                <Button onPress={onLogin}>
+                  <Text style={[styles.baseText, styles.loginButtonText]}>
+                    Увійти
+                  </Text>
+                </Button>
+              )}
+
+              {error && <Text style={styles.errorText}>{error}</Text>}
+
+              <View style={styles.signUpContainer}>
+                <Text style={[styles.baseText, styles.passwordButtonText]}>
+                  Немає акаунту?
+                  <TouchableWithoutFeedback onPress={onSignUp}>
+                    <Text style={styles.signUpText}> Зареєструватися</Text>
+                  </TouchableWithoutFeedback>
                 </Text>
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </>
     </Pressable>
   );
 };
@@ -174,9 +196,9 @@ const styles = StyleSheet.create({
   },
   signUpText: {
     textDecorationLine: "underline",
-    color: colors.blue,
   },
-  infoText: {
-    color: colors.blue,
+  errorText: {
+    color: colors.red,
+    textAlign: "center",
   },
 });

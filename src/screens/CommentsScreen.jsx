@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
+  Text,
   StyleSheet,
   Image,
   FlatList,
@@ -8,30 +9,102 @@ import {
   Keyboard,
   TouchableOpacity,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  loadPostById,
+  loadComments,
+  createComment,
+} from "../redux/post/postOperations";
+import {
+  selectPostById,
+  selectComments,
+  selectCommentCreate,
+} from "../redux/post/postSelectors";
+import { selectUser } from "../redux/user/userSelectors";
 import { colors } from "../../styles/global";
 import Comment from "../components/Comment";
 import Input from "../components/Input";
 import { SendIcon } from "../../assets/icons";
-const CommentsScreen = ({ route }) => {
-  const post = route?.params?.post;
+import { v4 as uuidv4 } from "uuid";
 
-  const testComments = [
-    {
-      text: "This is such a stunning shot! The lighting is absolutely perfect.",
-      date: "February 1, 2025 | 10:15 AM",
-      avatar: require("../../assets/images/default-avatar.jpg"),
-    },
-    {
-      text: "Thank you! I used natural light during golden hour to get this effect.",
-      date: "February 1, 2025 | 10:45 AM",
-      avatar: require("../../assets/images/default-avatar.jpg"),
-      align: "right",
-    },
-  ];
+const CommentsScreen = ({ route }) => {
+  const postId = route?.params?.postId;
+  const [comment, setComment] = useState("");
+  const dispatch = useDispatch();
+  const { user } = useSelector(selectUser);
+  const { post, isLoading, error } = useSelector(selectPostById);
+  const {
+    comments = [],
+    isLoading: commentsLoading,
+    error: commentsError,
+  } = useSelector(selectComments);
+  const {
+    lastComment,
+    isLoading: lastCommentLoading,
+    error: lastCommentError,
+  } = useSelector(selectCommentCreate);
+
+  useEffect(() => {
+    if (postId) {
+      dispatch(loadPostById(postId));
+    }
+  }, [postId]);
+
+  useEffect(() => {
+    if (postId) {
+      dispatch(loadComments(postId));
+    }
+  }, [postId]);
+
+  useEffect(() => {
+    if (lastComment) {
+      dispatch(loadComments(postId));
+    }
+  }, [lastComment]);
+
+  console.log("post", post);
+
+  if (isLoading) {
+    return (
+      <View style={styles.section}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.section}>
+        <Text>Error: {error}</Text>
+      </View>
+    );
+  }
+
+  const handleCommentSubmit = (text) => {
+    dispatch(
+      createComment({
+        id: uuidv4(),
+        comment,
+        postId,
+        userId: user.uid,
+        date: new Date().toISOString(),
+      }),
+    );
+    setComment("");
+  };
+
+  const handleCommentChange = (text) => {
+    setComment(text);
+  };
 
   const SendBtn = () => (
-    <TouchableOpacity style={styles.sendBtn}>
+    <TouchableOpacity
+      onPress={handleCommentSubmit}
+      style={styles.sendBtn}
+      disabled={lastCommentLoading}
+    >
       <SendIcon />
     </TouchableOpacity>
   );
@@ -48,24 +121,35 @@ const CommentsScreen = ({ route }) => {
             <View style={styles.commentsContainer}>
               <FlatList
                 style={styles.commentsList}
-                data={testComments}
+                data={comments}
                 renderItem={({ item }) => (
                   <Comment
-                    text={item.text}
+                    text={item.comment}
                     date={item.date}
-                    avatar={item.avatar}
-                    align={item.align}
+                    avatar={require("../../assets/images/default-avatar.jpg")}
+                    align={item.userId === user.uid ? "right" : "left"}
                   />
                 )}
               />
+              {commentsLoading && <ActivityIndicator size="large" />}
+
+              {commentsError && <Text>Error: {commentsError}</Text>}
             </View>
           </View>
 
           <View style={styles.inputContainer}>
             <Input
               outerStyles={styles.input}
+              value={comment}
+              onTextChange={handleCommentChange}
               placeholder="Коментувати..."
-              rightButton={<SendBtn />}
+              rightButton={
+                lastCommentLoading ? (
+                  <ActivityIndicator size="small" />
+                ) : (
+                  <SendBtn />
+                )
+              }
             />
           </View>
         </View>
@@ -119,6 +203,11 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidingView: {
     flex: 1,
+  },
+  section: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

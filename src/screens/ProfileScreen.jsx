@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,17 +7,53 @@ import {
   Dimensions,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import { logoutUser } from "../redux/user/userOperations";
+import {
+  selectUser,
+  selectIsLoading,
+  selectError,
+} from "../redux/user/userSelectors";
+import {
+  selectPosts,
+  selectPostsLoading,
+  selectPostsError,
+  selectLastCreatedPost,
+} from "../redux/post/postSelectors";
+import { loadPosts } from "../redux/post/postOperations";
+
 import * as ImagePicker from "expo-image-picker";
 
 import { colors } from "../../styles/global";
-import { CirclePlusSvg, CircleCrossSvg, LogoutIcon } from "../../assets/icons";
+import { CirclePlusSvg, CircleCrossSvg } from "../../assets/icons";
 import Post from "../components/Post";
+import LogoutButton from "../components/LogoutButton";
+
 const { width: SCREEN_WIDTH } = Dimensions.get("screen");
 
 const RegistrationScreen = ({ navigation }) => {
+  const dispatch = useDispatch();
   const [photo, setPhoto] = useState("");
+  const { posts } = useSelector(selectPosts);
+  const { user } = useSelector(selectUser);
+  const isLoading = useSelector(selectIsLoading);
+  const error = useSelector(selectError);
+
+  const lastPost = useSelector(selectLastCreatedPost);
+  const isPostsLoading = useSelector(selectPostsLoading);
+  const postsLoadingError = useSelector(selectPostsError);
+
+  useEffect(() => {
+    if (user?.uid) {
+      dispatch(loadPosts(user.uid));
+    }
+  }, [lastPost, user]);
+
+  const handleLogout = () => {
+    dispatch(logoutUser());
+  };
 
   const handlePhotoUpload = async () => {
     try {
@@ -49,29 +85,6 @@ const RegistrationScreen = ({ navigation }) => {
     setPhoto("");
   };
 
-  const testPosts = [
-    {
-      image: require("../../assets/images/default-avatar.jpg"),
-      title: "Ліс",
-      location: "Ivano-Frankivs'k Region, Ukraine",
-    },
-    {
-      image: require("../../assets/images/default-avatar.jpg"),
-      title: "Ліс",
-      location: "Ivano-Frankivs'k Region, Ukraine",
-    },
-    {
-      image: require("../../assets/images/default-avatar.jpg"),
-      title: "Ліс",
-      location: "Ivano-Frankivs'k Region, Ukraine",
-    },
-    {
-      image: require("../../assets/images/default-avatar.jpg"),
-      title: "Ліс",
-      location: "Ivano-Frankivs'k Region, Ukraine",
-    },
-  ];
-
   return (
     <>
       <Image
@@ -82,12 +95,11 @@ const RegistrationScreen = ({ navigation }) => {
 
       <View style={styles.container}>
         <View style={styles.formContainer}>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={() => navigation.navigate("Login")}
-          >
-            <LogoutIcon width={24} height={24} />
-          </TouchableOpacity>
+          {!isLoading ? (
+            <LogoutButton style={styles.logoutButton} onPress={handleLogout} />
+          ) : (
+            <ActivityIndicator size="small" style={styles.logoutButton} />
+          )}
 
           <View style={styles.photoContainer}>
             {photo && (
@@ -109,20 +121,31 @@ const RegistrationScreen = ({ navigation }) => {
             )}
           </View>
 
-          <Text style={styles.title}>Natali Romanova</Text>
+          <Text style={styles.title}>{user?.displayName}</Text>
 
           {/* Posts */}
-          <FlatList
-            style={styles.postsContainer}
-            data={testPosts}
-            renderItem={({ item }) => (
-              <Post
-                image={item.image}
-                title={item.title}
-                location={item.location}
-              />
-            )}
-          />
+          {isPostsLoading ? (
+            <ActivityIndicator size="large" color={colors.blue} />
+          ) : (
+            <FlatList
+              style={styles.postsContainer}
+              data={posts}
+              renderItem={({ item }) => (
+                <Post
+                  key={item.id}
+                  image={{ uri: item.image }}
+                  title={item.title}
+                  location={item.address}
+                  onLocationPress={() =>
+                    navigation.navigate("MapScreen", { postId: item.id })
+                  }
+                  onCommentsPress={() =>
+                    navigation.navigate("CommentsScreen", { postId: item.id })
+                  }
+                />
+              )}
+            />
+          )}
         </View>
       </View>
     </>
@@ -161,6 +184,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 25,
     paddingHorizontal: 16,
     paddingTop: 92,
+    //paddingBottom: 79,
   },
   title: {
     fontSize: 30,
