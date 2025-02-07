@@ -1,20 +1,31 @@
-import { TouchableOpacity } from "react-native";
+import { StyleSheet, ActivityIndicator } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import {
   PostsIcon,
   UserIcon,
   WideCirclePlus,
   ArrowLeft,
-  LogoutIcon,
 } from "../../assets/icons";
 
 import ProfileScreen from "../screens/ProfileScreen";
 import CreatePostsScreen from "../screens/CreatePostsScreen";
+import LogoutButton from "../components/LogoutButton";
 import PostsScreen from "../screens/PostsScreen";
+import { logoutUser } from "../redux/user/userOperations";
+import { selectIsLoading, selectError } from "../redux/user/userSelectors";
 
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = ({ navigation }) => {
+  const dispatch = useDispatch();
+  const isLoading = useSelector(selectIsLoading);
+  const error = useSelector(selectError);
+  console.log(error);
+  const handleLogout = () => {
+    dispatch(logoutUser());
+  };
+
   return (
     <Tab.Navigator
       initialRouteName="PostsScreen"
@@ -39,14 +50,15 @@ const BottomTabNavigator = ({ navigation }) => {
         component={PostsScreen}
         options={({ navigation }) => ({
           title: "Публікації",
-          headerRight: () => (
-            <TouchableOpacity
-              style={{ paddingRight: 10 }}
-              onPress={() => navigation.navigate("Login")}
-            >
-              <LogoutIcon width={24} height={24} />
-            </TouchableOpacity>
-          ),
+          headerRight: () =>
+            !isLoading ? (
+              <LogoutButton
+                style={{ paddingRight: 10 }}
+                onPress={handleLogout}
+              />
+            ) : (
+              <ActivityIndicator size="small" style={{ paddingRight: 10 }} />
+            ),
           tabBarIcon: ({ focused }) => <PostsIcon width={24} height={24} />,
         })}
       />

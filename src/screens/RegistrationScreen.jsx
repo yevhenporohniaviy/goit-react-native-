@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,126 +10,195 @@ import {
   StyleSheet,
   TouchableOpacity,
   KeyboardAvoidingView,
+  ActivityIndicator,
+  TouchableWithoutFeedback,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 
 import { colors } from "../../styles/global";
 
 import Input from "../components/Input";
 import Button from "../components/Button";
-import { CirclePlusSvg } from "../../assets/icons";
+import { CirclePlusSvg, CircleCrossSvg } from "../../assets/icons";
+
+import { useSelector, useDispatch } from "react-redux";
+import { selectIsLoading, selectError } from "../redux/user/userSelectors";
+import { registerUser } from "../redux/user/userOperations";
+import { resetError } from "../redux/user/userSlice";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("screen");
 
 const RegistrationScreen = ({ navigation }) => {
-  const [state, setState] = useState({
-    login: "",
-    email: "",
-    password: "",
-    photo: "",
-  });
-  const [isPasswordHidden, setIsPasswordHidden] = useState(true);
+  const [photo, setPhoto] = useState("");
+  const [login, setLogin] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(true);
+  const isLoading = useSelector(selectIsLoading);
+  const error = useSelector(selectError);
+  const dispatch = useDispatch();
 
-  const handlePhotoUpload = useCallback(async () => {
-    console.log("Upload photo");
+  useEffect(() => {
+    dispatch(resetError());
   }, []);
 
-  const handleLoginChange = useCallback((value) => {
-    setState((prev) => ({ ...prev, login: value }));
-  }, []);
+  const handlePhotoUpload = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-  const handleEmailChange = useCallback((value) => {
-    setState((prev) => ({ ...prev, email: value }));
-  }, []);
+      if (status !== "granted") {
+        alert("Необхідний дозвіл на доступ до галереї");
+        return;
+      }
 
-  const handlePasswordChange = useCallback((value) => {
-    if (value.length <= 20) {
-      setState((prev) => ({ ...prev, password: value }));
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setPhoto(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.log("Помилка при завантаженні фото:", error);
+      alert("Помилка при завантаженні фото");
     }
-  }, []);
+  };
 
-  const togglePasswordVisibility = useCallback(() => {
-    setIsPasswordHidden((prev) => !prev);
-  }, []);
+  const handlePhotoRemove = () => {
+    setPhoto("");
+  };
 
-  const onRegister = useCallback(async () => {
+  const handleLoginChange = (value) => {
+    setLogin(value);
+  };
+
+  const handleEmailChange = (value) => {
+    setEmail(value);
+  };
+
+  const handlePasswordChange = (value) => {
+    if (value.length < 20) {
+      setPassword(value);
+    }
+  };
+
+  const showPassword = () => {
+    setIsPasswordVisible((prev) => !prev);
+  };
+
+  const onRegister = async () => {
     console.log("register");
-    console.log(state);
-  }, [state]);
+    console.log(login, email, password, photo);
+    dispatch(registerUser({ email, password, login }));
+    // navigation.navigate("Home");
+  };
 
-  const onSignUp = useCallback(() => {
+  const onSignUp = () => {
     navigation.navigate("Login");
-  }, []);
+  };
 
-  const passwordToggleButton = (
-    <TouchableOpacity onPress={togglePasswordVisibility}>
-      <Text style={[styles.baseText, styles.passwordButtonText]}>
-        {isPasswordHidden ? "Показати" : "Сховати"}
-      </Text>
+  const showButton = (
+    <TouchableOpacity onPress={showPassword}>
+      <Text style={[styles.baseText, styles.passwordButtonText]}>Показати</Text>
     </TouchableOpacity>
   );
 
   return (
-    <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
-      <Image
-        source={require("../../assets/images/bg_native.png")}
-        resizeMode="cover"
-        style={styles.image}
-      />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <View style={styles.formContainer}>
-          <View style={styles.photoContainer}>
-            <Pressable onPress={handlePhotoUpload} style={styles.circlePlus}>
-              <CirclePlusSvg />
-            </Pressable>
-          </View>
+    <Pressable style={{ flex: 1 }} onPress={() => Keyboard.dismiss()}>
+      <>
+        <Image
+          source={require("../../assets/images/bg_native.png")}
+          resizeMode="cover"
+          style={styles.image}
+        />
 
-          <Text style={styles.title}>Реєстрація</Text>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS == "ios" ? "padding" : "height"}
+        >
+          <View style={styles.formContainer}>
+            <View style={styles.photoContainer}>
+              {photo && (
+                <>
+                  <Image source={{ uri: photo }} style={styles.photo} />
+                  <Pressable
+                    onPress={handlePhotoRemove}
+                    style={styles.circlePlus}
+                  >
+                    <CircleCrossSvg />
+                  </Pressable>
+                </>
+              )}
 
-          <View style={[styles.innerContainer, styles.inputContainer]}>
-            <Input
-              value={state.login}
-              autoFocus={true}
-              placeholder="Логін"
-              onTextChange={handleLoginChange}
-            />
+              {!photo && (
+                <Pressable
+                  onPress={handlePhotoUpload}
+                  style={styles.circlePlus}
+                >
+                  <CirclePlusSvg />
+                </Pressable>
+              )}
+            </View>
 
-            <Input
-              value={state.email}
-              placeholder="Адреса електронної пошти"
-              onTextChange={handleEmailChange}
-            />
+            <Text style={styles.title}>Реєстрація</Text>
 
-            <Input
-              value={state.password}
-              placeholder="Пароль"
-              rightButton={passwordToggleButton}
-              outerStyles={styles.passwordButton}
-              onTextChange={handlePasswordChange}
-              secureTextEntry={isPasswordHidden}
-            />
-          </View>
+            <View style={[styles.innerContainer, styles.inputContainer]}>
+              <Input
+                value={login}
+                autofocus={true}
+                placeholder="Логін"
+                onTextChange={handleLoginChange}
+              />
 
-          <View style={[styles.innerContainer, styles.buttonContainer]}>
-            <Button onPress={onRegister}>
-              <Text style={[styles.baseText, styles.loginButtonText]}>
-                Зареєструватися
-              </Text>
-            </Button>
+              <Input
+                value={email}
+                autofocus={true}
+                placeholder="Адреса електронної пошти"
+                onTextChange={handleEmailChange}
+              />
 
-            <View style={styles.signUpContainer}>
-              <Text style={[styles.baseText, styles.passwordButtonText]}>
-                Вже є акаунт?{" "}
-              </Text>
-              <TouchableOpacity onPress={onSignUp}>
-                <Text style={[styles.baseText, styles.signUpText]}>Увійти</Text>
-              </TouchableOpacity>
+              <Input
+                value={password}
+                placeholder="Пароль"
+                rightButton={showButton}
+                outerStyles={styles.passwordButton}
+                onTextChange={handlePasswordChange}
+                secureTextEntry={isPasswordVisible}
+              />
+            </View>
+
+            <View style={[styles.innerContainer, styles.buttonContainer]}>
+              {isLoading ? (
+                <ActivityIndicator size="large" />
+              ) : (
+                <Button onPress={onRegister}>
+                  <Text style={[styles.baseText, styles.loginButtonText]}>
+                    Зареєструватися
+                  </Text>
+                </Button>
+              )}
+
+              {error && <Text style={styles.errorText}>{error}</Text>}
+
+              <View style={styles.signUpContainer}>
+                <Text style={[styles.baseText, styles.passwordButtonText]}>
+                  Вже є акаунт ?{" "}
+                  <TouchableWithoutFeedback
+                    style={styles.signUpTextHolder}
+                    onPress={onSignUp}
+                  >
+                    <Text style={styles.signUpText}>Увійти</Text>
+                  </TouchableWithoutFeedback>
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </>
     </Pressable>
   );
 };
@@ -166,6 +235,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 25,
     paddingHorizontal: 16,
     paddingTop: 92,
+    //paddingBottom: 79,
   },
   title: {
     fontSize: 30,
@@ -196,11 +266,11 @@ const styles = StyleSheet.create({
   },
   signUpText: {
     textDecorationLine: "underline",
-    color: colors.blue,
   },
   photoContainer: {
     position: "absolute",
     top: -60,
+    bottom: 0,
     height: 120,
     width: 120,
     backgroundColor: colors.light_gray,
@@ -215,8 +285,15 @@ const styles = StyleSheet.create({
     width: 25,
   },
   photo: {
-    width: 120,
+    position: "absolute",
+    top: 0,
+    bottom: 0,
     height: 120,
+    width: 120,
     borderRadius: 16,
+  },
+  errorText: {
+    color: colors.red,
+    textAlign: "center",
   },
 });

@@ -9,20 +9,34 @@ import CommentsScreen from "../screens/CommentsScreen";
 import BottomTabNavigator from "./BottomTabNavigator";
 import { ArrowLeft } from "../../assets/icons";
 
+import { useSelector } from "react-redux";
+import { selectUser } from "../redux/user/userSelectors";
+import { useEffect } from "react";
 const Stack = createStackNavigator();
 
 const MainNavigator = () => {
   const navigation = useNavigation();
+  const { user } = useSelector(selectUser);
+  const initialRouteName = user ? "Home" : "Login";
+
+  useEffect(() => {
+    if (user && user?.uid) {
+      navigation.navigate("Home");
+    } else {
+      navigation.navigate("Login");
+    }
+  }, [user]);
+
   return (
     <Stack.Navigator
-      initialRouteName="Login"
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
       }}
     >
-      <Stack.Screen name="Home" component={BottomTabNavigator} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Registration" component={RegistrationScreen} />
+      <Stack.Screen name="Home" component={BottomTabNavigator} />
       <Stack.Screen
         name="MapScreen"
         options={{
